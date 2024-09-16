@@ -756,6 +756,23 @@ class MPVController: NSObject {
     return mpv_command_string(mpv, rawString)
   }
 
+  func commandForkeybinding(rawString: String) -> Int32 {
+    // sub-text
+    guard rawString != MPVProperty.subText, rawString != MPVProperty.secondarySubText else {
+      let currSub: String = self.getString(rawString) ?? "No subtitles found !"
+      let originalState: Bool = player.info.state == .playing
+      if originalState {
+        player.pause()
+      }
+      Utility.showAlert(currSub, style: .informational)
+      if originalState {
+        player.resume()
+      }
+      return 0
+    }
+    return self.command(rawString: rawString)
+  }
+
   func asyncCommand(_ command: MPVCommand, args: [String?] = [], checkError: Bool = true,
                     replyUserdata: UInt64, level: Logger.Level = .debug) {
     guard mpv != nil else { return }
