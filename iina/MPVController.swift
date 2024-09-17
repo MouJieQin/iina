@@ -756,9 +756,35 @@ class MPVController: NSObject {
     return mpv_command_string(mpv, rawString)
   }
 
+  func custom_abLoop(a: Double, b: Double) {
+    if player.info.abLoopStatus == .aSet {
+      // clear existing a point
+      player.abLoop()
+      player.abLoop()
+    }
+    guard player.info.abLoopStatus != .bSet else {
+      player.abLoop()
+      return
+    }
+    
+    player.seek(absoluteSecond: a)
+    player.abLoop()
+
+    player.seek(absoluteSecond: b)
+    player.abLoop()
+    // workaround to successfully set b point
+    player.abLoopB = b
+    player.syncAbLoop()
+    player.sendOSD(.abLoop(player.info.abLoopStatus))
+    
+    player.seek(absoluteSecond: a)
+  }
+
   func commandForkeybinding(rawString: String) -> Int32 {
-    // sub-text
-    guard rawString != MPVProperty.subText, rawString != MPVProperty.secondarySubText else {
+    let rawStringSplited = rawString.components(separatedBy:" ")
+    switch rawStringSplited[0] {
+    // show sub-text/secondary-text
+    case MPVProperty.subText, MPVProperty.secondarySubText:
       let currSub: String = self.getString(rawString) ?? "No subtitles found !"
       let originalState: Bool = player.info.state == .playing
       if originalState {
@@ -769,8 +795,46 @@ class MPVController: NSObject {
         player.resume()
       }
       return 0
+    // seek to sub-start/secondary-sub-start
+    case MPVProperty.subStart, MPVProperty.secondarySubStart:
+      let subStart: Double = self.getDouble(rawString)
+      guard Int32(subStart) != 0 else {
+        let seekCommand: String = rawString == MPVProperty.subStart ? "sub-seek -1" : "sub-seek -1 secondary"
+        let returnValue = self.command(rawString: seekCommand)
+        guard returnValue == 0 else {
+          return returnValue
+        }
+        return 0
+      }
+      player.seek(absoluteSecond: subStart)
+      return 0
+    case "sub-ab-loop", "secondarySub-ab-loop":
+      let subStart: Double = rawString == "sub-ab-loop" ? self.getDouble(MPVProperty.subStart) : self.getDouble(MPVProperty.secondarySubStart)
+      let subEnd: Double = rawString == "sub-ab-loop" ? self.getDouble(MPVProperty.subEnd) : self.getDouble(MPVProperty.secondarySubEnd)
+      guard Int32(subStart) != 0 else {
+        return 0
+      }
+      custom_abLoop(a: subStart, b: subEnd)
+      return 0
+    case "cur-ab-loop":
+      let pos = getDouble(MPVProperty.timePos)
+      var leftDuration = 1.0
+      if rawStringSplited.count >= 2, let first = Double(rawStringSplited[1]) {
+        leftDuration = first
+      }
+      var RightDuration = 1.0
+      if rawStringSplited.count >= 3, let second = Double(rawStringSplited[2]) {
+        RightDuration = second
+      }
+      custom_abLoop(a: pos - leftDuration, b: pos + RightDuration)
+      guard player.info.state == .playing else {
+        player.resume()
+        return 0
+      }
+      return 0
+    default:
+      return self.command(rawString: rawString)
     }
-    return self.command(rawString: rawString)
   }
 
   func asyncCommand(_ command: MPVCommand, args: [String?] = [], checkError: Bool = true,
