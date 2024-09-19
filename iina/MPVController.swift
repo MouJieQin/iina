@@ -781,20 +781,21 @@ class MPVController: NSObject {
   }
 
   func commandForkeybinding(rawString: String) -> Int32 {
-    let rawStringSplited = rawString.components(separatedBy:" ")
+    let rawStringSplited = rawString.components(separatedBy: " ")
     switch rawStringSplited[0] {
     // show sub-text/secondary-text
     case MPVProperty.subText, MPVProperty.secondarySubText:
       let currSub: String = self.getString(rawString) ?? "No subtitles found !"
-      let originalState: Bool = player.info.state == .playing
-      if originalState {
+      let isPlaying: Bool = player.info.state == .playing
+      if isPlaying {
         player.pause()
       }
       Utility.showAlert(currSub, style: .informational)
-      if originalState {
+      if isPlaying {
         player.resume()
       }
       return 0
+
     // seek to sub-start/secondary-sub-start
     case MPVProperty.subStart, MPVProperty.secondarySubStart:
       let subStart: Double = self.getDouble(rawString)
@@ -808,6 +809,7 @@ class MPVController: NSObject {
       }
       player.seek(absoluteSecond: subStart)
       return 0
+
     case "sub-ab-loop", "secondarySub-ab-loop":
       let subStart: Double = rawString == "sub-ab-loop" ? self.getDouble(MPVProperty.subStart) : self.getDouble(MPVProperty.secondarySubStart)
       let subEnd: Double = rawString == "sub-ab-loop" ? self.getDouble(MPVProperty.subEnd) : self.getDouble(MPVProperty.secondarySubEnd)
@@ -816,6 +818,7 @@ class MPVController: NSObject {
       }
       custom_abLoop(a: subStart, b: subEnd)
       return 0
+
     case "cur-ab-loop":
       let pos = getDouble(MPVProperty.timePos)
       var leftDuration = 1.0
@@ -826,12 +829,38 @@ class MPVController: NSObject {
       if rawStringSplited.count >= 3, let second = Double(rawStringSplited[2]) {
         RightDuration = second
       }
-      custom_abLoop(a: pos - leftDuration, b: pos + RightDuration)
-      guard player.info.state == .playing else {
+      player.mainWindow.custom_abLoop(a: pos - leftDuration, b: pos + RightDuration)
+       guard player.info.state == .playing else {
         player.resume()
         return 0
       }
       return 0
+
+    case "mark-timestamp":
+      player.loadTimestamps()
+      let pos = getDouble(MPVProperty.timePos)
+      guard rawStringSplited.count == 2 else {
+        log("The mark-timestamp must have and only have one parameter.")
+        return -4
+      }
+      switch rawStringSplited[1] {
+      case "set":
+        player.mainWindow.markTimeStamps(pos)
+        return 0
+      case "right-seek", "left-seek":
+        return player.mainWindow.markTimeStampSeek(pos, rightWardFlag: rawStringSplited[1] == "right-seek")
+      case "remove":
+        return player.mainWindow.markTimeStampRemove(pos)
+      case "clear":
+        player.mainWindow.clearAllTimestamp()
+        return 0
+      case "show":
+        return 0
+      default:
+        log("\(rawStringSplited[1]) is an illegal parameter.")
+        return -4
+      }
+
     default:
       return self.command(rawString: rawString)
     }
@@ -858,6 +887,10 @@ class MPVController: NSObject {
 
   func observe(property: String, format: mpv_format = MPV_FORMAT_DOUBLE) {
     mpv_observe_property(mpv, 0, property, format)
+  }
+
+  func roundToTwoPlaces(decimal: Double) -> Double {
+    return (decimal * Double(100)).rounded() / Double(100)
   }
 
   // Set property
