@@ -266,16 +266,8 @@ class PlayerWindowController: NSWindowController, NSWindowDelegate {
         return player.screenshot(fromKeyBinding: keyBinding)
         
       default:
-        print("Keybinding Run command: \(keyBinding.rawAction)")
-        let arraysplited = keyBinding.rawAction.components(separatedBy:";")
-        var tmpReturnValue: Int32=0
-        for cmd in arraysplited{
-          tmpReturnValue = player.mpv.commandForkeybinding(rawString: cmd)
-          if tmpReturnValue != 0{
-            break
-          }
-        }
-        returnValue=tmpReturnValue
+        Logger.log("Run Keybinding commands: \(keyBinding.rawAction)", level: .debug)
+        returnValue = player.mpv.commandForkeybinding(rawString: keyBinding.rawAction)
       }
 
       if returnValue == 0 {
@@ -364,9 +356,6 @@ class PlayerWindowController: NSWindowController, NSWindowDelegate {
   }
 
   func loadTimestaps() {
-    guard player.timestamps.count != 0 else {
-      return
-    }
     for index in 0 ..< player.timestamps.count {
       playSlider.insertTimestamp(pos: secondsToPercent(player.timestamps[index]), index: index, toolTip: player.timestampTips[index])
     }
