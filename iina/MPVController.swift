@@ -847,23 +847,6 @@ class MPVController: NSObject {
       }
       return 0
 
-    case "cur-ab-loop":
-      let pos = getDouble(MPVProperty.timePos)
-      var leftDuration = 1.0
-      if rawStringSplited.count >= 2, let first = Double(rawStringSplited[1]) {
-        leftDuration = first
-      }
-      var RightDuration = 1.0
-      if rawStringSplited.count >= 3, let second = Double(rawStringSplited[2]) {
-        RightDuration = second
-      }
-      player.mainWindow.custom_abLoop(a: pos - leftDuration, b: pos + RightDuration)
-       guard player.info.state == .playing else {
-        player.resume()
-        return 0
-      }
-      return 0
-
     case "mark-timestamp":
       guard rawStringSplited.count == 2 else {
         log("The mark-timestamp must have and only have one parameter.")
