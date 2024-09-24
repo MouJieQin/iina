@@ -800,11 +800,6 @@ class MPVController: NSObject {
     case MPVProperty.subStart, MPVProperty.secondarySubStart:
       let subStart: Double = self.getDouble(rawString)
       guard Int32(subStart) != 0 else {
-        let seekCommand: String = rawString == MPVProperty.subStart ? "sub-seek -1" : "sub-seek -1 secondary"
-        let returnValue = self.command(rawString: seekCommand)
-        guard returnValue == 0 else {
-          return returnValue
-        }
         return 0
       }
       player.seek(absoluteSecond: subStart)
