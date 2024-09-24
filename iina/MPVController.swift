@@ -857,6 +857,12 @@ class MPVController: NSObject {
       case "set":
         player.mainWindow.markTimeStamps(pos)
         return 0
+      case "sub-start", "secondary-sub-start":
+        let subStart: Double = self.getDouble(rawStringSplited[1])
+        if Int32(subStart) != 0 {
+          player.mainWindow.markTimeStamps(subStart)
+        }
+        return 0
       case "right-seek", "left-seek":
         return player.mainWindow.markTimeStampSeek(pos, rightWardFlag: rawStringSplited[1] == "right-seek")
       case "remove":
