@@ -383,8 +383,10 @@ class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
   func seekForTimeStampSeek(absoluteSecond: Double) {
     player.seek(absoluteSecond: absoluteSecond)
+    player.info.isSeekingTimestamp = true
     guard player.info.state == .paused else {
       player.pause()
+      player.info.isPausedDueToSeekingTimestamp = true
       return
     }
   }

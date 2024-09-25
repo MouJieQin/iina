@@ -121,6 +121,9 @@ class PlaybackInfo {
     if position.second > duration.second { position.second = duration.second }
   }
 
+  var isSeekingTimestamp: Bool = false
+  var isPausedDueToSeekingTimestamp: Bool = false
+
   var isAudio: MediaIsAudioStatus {
     guard !isNetworkResource else { return .notAudio }
     let noVideoTrack = videoTracks.isEmpty

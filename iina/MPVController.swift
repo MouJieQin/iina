@@ -1191,12 +1191,17 @@ class MPVController: NSObject {
         // It must be running when seeking to avoid slowdowns caused by mpv waiting for IINA to call
         // mpv_render_report_swap.
         player.mainWindow.videoView.displayActive()
-        if needRecordSeekTime {
-          recordedSeekStartTime = CACurrentMediaTime()
-        }
-        player.syncUI(.time)
+      }
+      if needRecordSeekTime {
+        recordedSeekStartTime = CACurrentMediaTime()
+      }
+      player.syncUI(.time)
+      // Avoide covering timestamp OSD when seeking timestamp needs seek
+      if player.info.isSeekingTimestamp {
+        player.info.isSeekingTimestamp = false
+      } else {
         let osdText = (player.info.videoPosition?.stringRepresentation ?? Constants.String.videoTimePlaceholder) + " / " +
-        (player.info.videoDuration?.stringRepresentation ?? Constants.String.videoTimePlaceholder)
+          (player.info.videoDuration?.stringRepresentation ?? Constants.String.videoTimePlaceholder)
         let percentage = (player.info.videoPosition / player.info.videoDuration) ?? 1
         player.sendOSD(.seek(osdText, percentage))
       }
@@ -1297,7 +1302,12 @@ class MPVController: NSObject {
       }
       DispatchQueue.main.async { [self] in
         if (player.info.state == .paused) != paused {
-          player.sendOSD(paused ? .pause : .resume)
+          // Avoide covering timestamp OSD when seeking timestamp need pause
+          if player.info.isPausedDueToSeekingTimestamp {
+            player.info.isPausedDueToSeekingTimestamp = false
+          } else {
+            player.sendOSD(paused ? .pause : .resume)
+          }
           player.info.state = paused ? .paused : .playing
           player.refreshSyncUITimer()
           // Follow energy efficiency best practices and ensure IINA is absolutely idle when the
