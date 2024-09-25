@@ -785,8 +785,9 @@ class MPVController: NSObject {
     switch rawStringSplited[0] {
     // show sub-text/secondary-text
     case MPVProperty.subText, MPVProperty.secondarySubText:
-      let currSub: String = self.getString(rawString) ?? "No subtitles found !"
-      let isPlaying: Bool = player.info.state == .playing
+      let notFoundInfo = (rawStringSplited[0] == MPVProperty.subText ? "No subtitles found !" : "No secondary subtitles found !")
+      let currSub: String = self.getString(rawString) ?? notFoundInfo
+      let isPlaying: Bool = player.info.isPlaying
       if isPlaying {
         player.pause()
       }
@@ -804,6 +805,7 @@ class MPVController: NSObject {
       }
       player.seek(absoluteSecond: subStart)
       return 0
+
     case "custom-ab-loop":
       guard rawStringSplited.count >= 2 else {
         log("The custom-ab-loop must have at least one parameter.")
