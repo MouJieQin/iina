@@ -787,7 +787,7 @@ class MPVController: NSObject {
     case MPVProperty.subText, MPVProperty.secondarySubText:
       let notFoundInfo = (rawStringSplited[0] == MPVProperty.subText ? "No subtitles found !" : "No secondary subtitles found !")
       let currSub: String = self.getString(rawString) ?? notFoundInfo
-      let isPlaying: Bool = player.info.isPlaying
+      let isPlaying: Bool = player.info.state == .playing
       if isPlaying {
         player.pause()
       }
