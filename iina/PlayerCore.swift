@@ -231,39 +231,7 @@ class PlayerCore: NSObject {
 
   var timestamps: [Double] = []
   var timestampTips: [String] = []
-  var playingFilePath = ""
-  var timestampFile = ""
-
-  func loadTimestampsFromFile() {
-    guard let dicFromPList = NSDictionary(contentsOfFile: timestampFile) else {
-      return
-    }
-    timestamps = dicFromPList["Timestamps"] as! [Double]
-    timestampTips = dicFromPList["Tips"] as! [String]
-    self.mainWindow.loadTimestaps()
-  }
-
-  func syncTimestamps() {
-    // clear all timestamps in the previous file without syncing to the timestamp file.
-    self.mainWindow.clearAllTimestamp(isSyncFile: false)
-    let absolutePath = info.currentURL?.absoluteString ?? ""
-    guard !absolutePath.isEmpty else {
-      return
-    }
-    playingFilePath = absolutePath
-    let timestampFileName = absolutePath.md5 + ".plist"
-    timestampFile = Utility.timestampDirURL.appendingPathComponent(timestampFileName).path
-    // check exist
-    guard FileManager.default.fileExists(atPath: timestampFile) else {
-      return
-    }
-    loadTimestampsFromFile()
-  }
-
-  func syncTimestampFile() {
-    let timestampDict: NSDictionary = ["File Path": playingFilePath, "Timestamps": timestamps, "Tips": timestampTips]
-    NSDictionary(dictionary: timestampDict).write(toFile: timestampFile, atomically: true)
-  }
+  var wbSocket: WebSocketManager!
 
   var isABLoopActive: Bool {
     abLoopA != 0 && abLoopB != 0 && mpv.getString(MPVOption.PlaybackControl.abLoopCount) != "0"
@@ -280,6 +248,7 @@ class PlayerCore: NSObject {
     thumbnailQueue = DispatchQueue(label: "IINAPlayerCoreThumbnailTask\(playerNumber)", qos: .utility)
     super.init()
     self.mpv = MPVController(playerCore: self)
+    self.wbSocket = WebSocketManager(player: self)
     self.mainWindow = MainWindowController(playerCore: self)
     self.miniPlayer = MiniPlayerWindowController(playerCore: self)
     self.initialWindow = InitialWindowController(playerCore: self)
@@ -452,6 +421,7 @@ class PlayerCore: NSObject {
     // Send load file command
     info.justOpenedFile = true
     info.state = .loading
+    self.wbSocket.connect()
     mpv.command(.loadfile, args: [path], level: .verbose)
 
     if Preference.bool(for: .autoRepeat) {
@@ -604,6 +574,7 @@ class PlayerCore: NSObject {
     let suffix = isMPVInitiated ? " (initiated by mpv)" : ""
     log("Player has shutdown\(suffix)")
     info.state = .shutDown
+    self.wbSocket.disconnect()
     if isMPVInitiated {
       // The user must have used mpv's IPC interface to send a quit command directly to mpv. Must
       // perform the actions that were skipped when IINA's normal shutdown process was bypassed.
@@ -837,6 +808,7 @@ class PlayerCore: NSObject {
     // Refresh UI synchronization as it will detect the player is stopping and shutdown the timer.
     refreshSyncUITimer()
 
+    self.wbSocket.disconnect()
     // Do not send a stop command to mpv if it is already stopped.
     guard info.state != .idle else { return }
     mpv.command(.stop, level: .verbose)
@@ -1299,6 +1271,10 @@ class PlayerCore: NSObject {
           DispatchQueue.main.async {
             Utility.showAlert("unsupported_sub")
           }
+        }
+      } else {
+        if !self.info.loadedSubFiles.contains(url.path) {
+          self.info.loadedSubFiles.append(url.path)
         }
       }
     }
@@ -1795,6 +1771,7 @@ class PlayerCore: NSObject {
       URL(string: path.addingPercentEncoding(withAllowedCharacters: .urlAllowed) ?? path) :
       URL(fileURLWithPath: path)
     info.isNetworkResource = !info.currentURL!.isFileURL
+    info.loadedSubFiles = []
 
     // set "date last opened" attribute
     if let url = info.currentURL, url.isFileURL {
@@ -1891,6 +1868,7 @@ class PlayerCore: NSObject {
     }
     info.videoPosition = VideoTime(pos)
     triedUsingExactSeekForCurrentFile = false
+    self.wbSocket.connect()
     checkUnsyncedWindowOptions()
     // generate thumbnails if window has loaded video
     if mainWindow.isVideoLoaded {
@@ -1901,7 +1879,7 @@ class PlayerCore: NSObject {
     getPlaylist()
     getChapters()
     syncAbLoop()
-    syncTimestamps()
+    wbSocket.sendFetchBookmark()
     refreshSyncUITimer()
     touchBarSupport.setupTouchBarUI()
 
